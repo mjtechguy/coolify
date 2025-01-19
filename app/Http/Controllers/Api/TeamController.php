@@ -3,8 +3,11 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Team;
+use App\Models\User;
 use Illuminate\Http\Request;
 use OpenApi\Attributes as OA;
+use App\Enums\Role;
 
 class TeamController extends Controller
 {
@@ -268,6 +271,209 @@ class TeamController extends Controller
 
         return response()->json(
             serializeApiResponse($team->members),
+        );
+    }
+
+    #[OA\Post(
+        summary: 'Add Member',
+        description: 'Add a member to the team.',
+        path: '/teams/{id}/members',
+        operationId: 'add-member-to-team',
+        security: [
+            ['bearerAuth' => []],
+        ],
+        tags: ['Teams'],
+        parameters: [
+            new OA\Parameter(name: 'id', in: 'path', required: true, description: 'Team ID', schema: new OA\Schema(type: 'integer')),
+        ],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['email', 'role'],
+                properties: [
+                    new OA\Property(property: 'email', type: 'string', format: 'email'),
+                    new OA\Property(property: 'role', type: 'string', enum: ['viewer', 'launcher', 'member', 'admin', 'owner']),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Member added.',
+                content: new OA\JsonContent(ref: '#/components/schemas/User')
+            ),
+            new OA\Response(
+                response: 401,
+                ref: '#/components/responses/401',
+            ),
+            new OA\Response(
+                response: 400,
+                ref: '#/components/responses/400',
+            ),
+            new OA\Response(
+                response: 404,
+                ref: '#/components/responses/404',
+            ),
+        ]
+    )]
+    public function add_member(Request $request)
+    {
+        $id = $request->id;
+        $teamId = getTeamIdFromToken();
+        if (is_null($teamId)) {
+            return invalidTokenResponse();
+        }
+        $teams = auth()->user()->teams;
+        $team = $teams->where('id', $id)->first();
+        if (is_null($team)) {
+            return response()->json(['message' => 'Team not found.'], 404);
+        }
+
+        $request->validate([
+            'email' => 'required|email',
+            'role' => 'required|in:viewer,launcher,member,admin,owner',
+        ]);
+
+        $user = User::where('email', $request->email)->first();
+        if (is_null($user)) {
+            return response()->json(['message' => 'User not found.'], 404);
+        }
+
+        $team->members()->attach($user->id, ['role' => $request->role]);
+
+        return response()->json(
+            serializeApiResponse($user),
+        );
+    }
+
+    #[OA\Patch(
+        summary: 'Update Member Role',
+        description: 'Update the role of a team member.',
+        path: '/teams/{id}/members/{userId}',
+        operationId: 'update-member-role',
+        security: [
+            ['bearerAuth' => []],
+        ],
+        tags: ['Teams'],
+        parameters: [
+            new OA\Parameter(name: 'id', in: 'path', required: true, description: 'Team ID', schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'userId', in: 'path', required: true, description: 'User ID', schema: new OA\Schema(type: 'integer')),
+        ],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['role'],
+                properties: [
+                    new OA\Property(property: 'role', type: 'string', enum: ['viewer', 'launcher', 'member', 'admin', 'owner']),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Member role updated.',
+                content: new OA\JsonContent(ref: '#/components/schemas/User')
+            ),
+            new OA\Response(
+                response: 401,
+                ref: '#/components/responses/401',
+            ),
+            new OA\Response(
+                response: 400,
+                ref: '#/components/responses/400',
+            ),
+            new OA\Response(
+                response: 404,
+                ref: '#/components/responses/404',
+            ),
+        ]
+    )]
+    public function update_member_role(Request $request)
+    {
+        $id = $request->id;
+        $userId = $request->userId;
+        $teamId = getTeamIdFromToken();
+        if (is_null($teamId)) {
+            return invalidTokenResponse();
+        }
+        $teams = auth()->user()->teams;
+        $team = $teams->where('id', $id)->first();
+        if (is_null($team)) {
+            return response()->json(['message' => 'Team not found.'], 404);
+        }
+
+        $request->validate([
+            'role' => 'required|in:viewer,launcher,member,admin,owner',
+        ]);
+
+        $user = $team->members()->where('user_id', $userId)->first();
+        if (is_null($user)) {
+            return response()->json(['message' => 'User not found.'], 404);
+        }
+
+        $team->members()->updateExistingPivot($userId, ['role' => $request->role]);
+
+        return response()->json(
+            serializeApiResponse($user),
+        );
+    }
+
+    #[OA\Delete(
+        summary: 'Remove Member',
+        description: 'Remove a member from the team.',
+        path: '/teams/{id}/members/{userId}',
+        operationId: 'remove-member-from-team',
+        security: [
+            ['bearerAuth' => []],
+        ],
+        tags: ['Teams'],
+        parameters: [
+            new OA\Parameter(name: 'id', in: 'path', required: true, description: 'Team ID', schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'userId', in: 'path', required: true, description: 'User ID', schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Member removed.',
+                content: new OA\JsonContent(ref: '#/components/schemas/User')
+            ),
+            new OA\Response(
+                response: 401,
+                ref: '#/components/responses/401',
+            ),
+            new OA\Response(
+                response: 400,
+                ref: '#/components/responses/400',
+            ),
+            new OA\Response(
+                response: 404,
+                ref: '#/components/responses/404',
+            ),
+        ]
+    )]
+    public function remove_member(Request $request)
+    {
+        $id = $request->id;
+        $userId = $request->userId;
+        $teamId = getTeamIdFromToken();
+        if (is_null($teamId)) {
+            return invalidTokenResponse();
+        }
+        $teams = auth()->user()->teams;
+        $team = $teams->where('id', $id)->first();
+        if (is_null($team)) {
+            return response()->json(['message' => 'Team not found.'], 404);
+        }
+
+        $user = $team->members()->where('user_id', $userId)->first();
+        if (is_null($user)) {
+            return response()->json(['message' => 'User not found.'], 404);
+        }
+
+        $team->members()->detach($userId);
+
+        return response()->json(
+            serializeApiResponse($user),
         );
     }
 }

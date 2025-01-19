@@ -7,13 +7,17 @@ enum Role: string
     case MEMBER = 'member';
     case ADMIN = 'admin';
     case OWNER = 'owner';
+    case VIEWER = 'viewer';
+    case LAUNCHER = 'launcher';
 
     public function rank(): int
     {
         return match ($this) {
-            self::MEMBER => 1,
-            self::ADMIN => 2,
-            self::OWNER => 3,
+            self::VIEWER => 1,
+            self::LAUNCHER => 2,
+            self::MEMBER => 3,
+            self::ADMIN => 4,
+            self::OWNER => 5,
         };
     }
 

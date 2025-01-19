@@ -19,6 +19,7 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
 use Laravel\Sanctum\HasApiTokens;
 use Laravel\Sanctum\NewAccessToken;
 use OpenApi\Attributes as OA;
+use App\Enums\Role;
 
 #[OA\Schema(
     description: 'User model',
@@ -144,17 +145,27 @@ class User extends Authenticatable implements SendsEmail
 
     public function isAdmin()
     {
-        return $this->role() === 'admin' || $this->role() === 'owner';
+        return $this->role() === Role::ADMIN->value || $this->role() === Role::OWNER->value;
     }
 
     public function isOwner()
     {
-        return $this->role() === 'owner';
+        return $this->role() === Role::OWNER->value;
     }
 
     public function isMember()
     {
-        return $this->role() === 'member';
+        return $this->role() === Role::MEMBER->value;
+    }
+
+    public function isViewer()
+    {
+        return $this->role() === Role::VIEWER->value;
+    }
+
+    public function isLauncher()
+    {
+        return $this->role() === Role::LAUNCHER->value;
     }
 
     public function isAdminFromSession()
@@ -166,7 +177,7 @@ class User extends Authenticatable implements SendsEmail
 
         $is_part_of_root_team = $teams->where('id', 0)->first();
         $is_admin_of_root_team = $is_part_of_root_team &&
-            ($is_part_of_root_team->pivot->role === 'admin' || $is_part_of_root_team->pivot->role === 'owner');
+            ($is_part_of_root_team->pivot->role === Role::ADMIN->value || $is_part_of_root_team->pivot->role === Role::OWNER->value);
 
         if ($is_part_of_root_team && $is_admin_of_root_team) {
             return true;
@@ -174,7 +185,7 @@ class User extends Authenticatable implements SendsEmail
         $team = $teams->where('id', session('currentTeam')->id)->first();
         $role = data_get($team, 'pivot.role');
 
-        return $role === 'admin' || $role === 'owner';
+        return $role === Role::ADMIN->value || $role === Role::OWNER->value;
     }
 
     public function isInstanceAdmin()
@@ -220,5 +231,10 @@ class User extends Authenticatable implements SendsEmail
         $user = Auth::user()->teams->where('id', currentTeam()->id)->first();
 
         return data_get($user, 'pivot.role');
+    }
+
+    public function assignRole($role)
+    {
+        $this->teams()->updateExistingPivot(currentTeam()->id, ['role' => $role]);
     }
 }
