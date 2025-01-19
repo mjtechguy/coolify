@@ -53,6 +53,34 @@ class Member extends Component
         }
     }
 
+    public function makeViewer()
+    {
+        try {
+            if (Role::from(auth()->user()->role())->lt(Role::ADMIN)
+                || Role::from($this->getMemberRole())->gt(auth()->user()->role())) {
+                throw new \Exception('You are not authorized to perform this action.');
+            }
+            $this->member->teams()->updateExistingPivot(currentTeam()->id, ['role' => Role::VIEWER->value]);
+            $this->dispatch('reloadWindow');
+        } catch (\Exception $e) {
+            $this->dispatch('error', $e->getMessage());
+        }
+    }
+
+    public function makeLauncher()
+    {
+        try {
+            if (Role::from(auth()->user()->role())->lt(Role::ADMIN)
+                || Role::from($this->getMemberRole())->gt(auth()->user()->role())) {
+                throw new \Exception('You are not authorized to perform this action.');
+            }
+            $this->member->teams()->updateExistingPivot(currentTeam()->id, ['role' => Role::LAUNCHER->value]);
+            $this->dispatch('reloadWindow');
+        } catch (\Exception $e) {
+            $this->dispatch('error', $e->getMessage());
+        }
+    }
+
     public function remove()
     {
         try {
